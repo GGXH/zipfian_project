@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+for i in 2008 2009
+do
+	python extr_info.py -r local ../../data/USD_JPY/${i}/ > ../../data/EUR_USD/clean/USD_JPY_${i}
+	python extr_info.py -r local ../../data/EUR_USD/${i}/ > ../../data/EUR_USD/clean/EUR_USD_${i}
+	python extr_info.py -r local ../../data/GBP_USD/${i}/ > ../../data/GBP_USD/clean/GBP_USD_${i}
+done
