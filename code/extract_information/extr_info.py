@@ -17,19 +17,28 @@ class Information_Extraction(MRJob):
         '''
         info_list = tick.split(",")
         date_pat = re.compile('[0-9]+-[0-9]+-[0-9]+')
+        time_pat = re.compile('[0-9]+:[0-9]+:[0-9]+')
         for idx in range(len(info_list)):
             try:
-                yield date_pat.search(info_list[idx]).group(), float(info_list[idx+1])
+                yield date_pat.search(info_list[idx]).group(), [time_pat.search(info_list[idx]).group(), float(info_list[idx+1])]
                 break
             except:
                 pass
 
-    def reducer_tick_value(self, date, rate):
+    def reducer_tick_value(self, date, time_rate_list):
         '''
         Find the highest, lowest, mean, and standard deviation of rate on a day
         '''
-        rate = np.array(list(rate))
-        yield date, [rate.max(), rate.min(), rate.mean(), rate.std()]
+        rate_list = []
+        time_late = datetime(1900,1,1,0,0,0)
+        conv_int = lambda x: int(x)
+        for time, rate in time_rate_list:
+            rate_list.append(rate)
+            date_time = datetime(*(map(conv_int, date.split('-'))+map(conv_int, time.split(':'))))
+            if date_time > time_late:
+                close_rate = rate
+        rate_list = np.array(rate_list)
+        yield date, [rate_list.max(), rate_list.min(), rate_list.mean(), rate_list.std(), close_rate]
 
     def steps(self):
         return [self.mr(mapper = self.mapper_tick_value, \
