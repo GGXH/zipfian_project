@@ -6,7 +6,7 @@ class nlist():
 
 	def add(self,element):
 		if len(self.element) < self.n:
-			self.element.append(element)
+			self.element.insert(0,element)
 		else:
-			self.element.pop(0)
-			self.element.append(element)
+			self.element.pop()
+			self.element.insert(0,element)

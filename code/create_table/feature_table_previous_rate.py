@@ -1,5 +1,5 @@
 import sqlite3
-import nlist
+from nlist import nlist
 
 
 def create_table(database, table_name_raw, table_name_clean):
@@ -26,9 +26,9 @@ def create_table(database, table_name_raw, table_name_clean):
 	database.commit()
 	
 
-def get_average(nlist_obj):
+def get_average(nlist_obj, n_period):
 	'''
-	Get the average value based on the value in previous 2, 3, 4, and 5 days
+	Get the average value based on the value in previous 2, 3, 4, ..., and n_period days
 	Input: 
 		nlist_obj: nlist objective
 	Output
@@ -36,9 +36,9 @@ def get_average(nlist_obj):
 	'''
 	avg = []
 	data_len = len(nlist_obj.element)
-	for avg_length in xrange(2, 6):
+	for avg_length in xrange(2, n_period+1):
 		if data_len >= avg_length:
-			avg.append(sum(nlist_obj.element[data_len-avg_length:]) * 1. / avg_length)
+			avg.append(sum(nlist_obj.element[:avg_length]) * 1. / avg_length)
 	return avg
 
 def get_talyer_slope(nlist_obj):
@@ -54,13 +54,13 @@ def get_talyer_slope(nlist_obj):
 	for slope_length in xrange(2, 6):
 		if data_len >= slope_length:
 			if slope_length == 2:
-				slope.append(nlist_obj.element[-1] - nlist_obj.element[-2])
+				slope.append(nlist_obj.element[0] - nlist_obj.element[1])
 			elif slope_length == 3:
-				slope.append(2.5 * nlist_obj.element[-1] - 4 * nlist_obj.element[-2] + 1.5 * nlist_obj.element[-3])
+				slope.append(2.5 * nlist_obj.element[0] - 4 * nlist_obj.element[1] + 1.5 * nlist_obj.element[2])
 			elif slope_length == 4:
-				slope.append(13./3. * nlist_obj.element[-1] - 9.5 * nlist_obj.element[-2] + 7 * nlist_obj.element[-3] - 11./6. * nlist_obj.element[-4])
+				slope.append(13./3. * nlist_obj.element[0] - 9.5 * nlist_obj.element[1] + 7 * nlist_obj.element[2] - 11./6. * nlist_obj.element[3])
 			elif slope_length == 5:
-				slope.append(77./12. * nlist_obj.element[-1] - 107./6. * nlist_obj.element[-2] + 39./2. * nlist_obj.element[-3] - 61./6. * nlist_obj.element[-4] + 25./12. * nlist_obj.element[-5])
+				slope.append(77./12. * nlist_obj.element[0] - 107./6. * nlist_obj.element[1] + 39./2. * nlist_obj.element[2] - 61./6. * nlist_obj.element[3] + 25./12. * nlist_obj.element[4])
 	return slope
 
 
@@ -88,20 +88,20 @@ def get_previous_data(database, table_name_raw, table_name_clean, n_period = 5):
 	##--create column for high, low, mean, close, and std in previous several days
 	pre_name_list = ['H', 'L', 'M', 'C', 'Std', 'HL']
 	for pre_name in pre_name_list:
-		for idx in xrange(5):
+		for idx in xrange(n_period):
 			sql_comm = 'alter table %(table_name)s add pre%(pre_name)s%(idx)s float' \
 				%{'table_name': table_name_clean, 'pre_name': pre_name, 'idx': idx}
 			database_pt.execute(sql_comm)
 	database.commit()
 	##--Create column for the average high, low, mean ,close, and std in previous several days
 	for pre_name in pre_name_list[:-2]:
-		for idx in xrange(2, 6):
+		for idx in xrange(2, n_period+1):
 			sql_comm = 'alter table %(table_name)s add pre_avg_%(pre_name)s%(idx)s float' \
 				%{'table_name': table_name_clean, 'pre_name': pre_name, 'idx': idx}
 			database_pt.execute(sql_comm)
 	database.commit()
 	##--Create slope of close using rates in previous 2, 3, 4, and 5 days
-	for idx in xrange(2, 6):
+	for idx in xrange(2, n_period+1):
 		sql_comm = 'alter table %(table_name)s add pre_slope_C%(idx)s float' \
 			%{'table_name': table_name_clean, 'idx': idx}
 		database_pt.execute(sql_comm)
@@ -118,12 +118,12 @@ def get_previous_data(database, table_name_raw, table_name_clean, n_period = 5):
 		database_pt.execute(sql_comm)
 		line = database_pt.fetchone()
 		if idx == 1:
-			preH = nlist(5,line[2])
-			preL = nlist(5,line[3])
-			preM = nlist(5,line[4])
-			preStd = nlist(5,line[5])
-			preC = nlist(5,line[6])
-			preHL = nlist(5,(line[2]+line[3])/2.)
+			preH = nlist(n_period,line[2])
+			preL = nlist(n_period,line[3])
+			preM = nlist(n_period,line[4])
+			preStd = nlist(n_period,line[5])
+			preC = nlist(n_period,line[6])
+			preHL = nlist(n_period,(line[2]+line[3])/2.)
 		else:
 			preH.add(line[2])
 			preL.add(line[3])
@@ -131,9 +131,9 @@ def get_previous_data(database, table_name_raw, table_name_clean, n_period = 5):
 			preStd.add(line[5])
 			preC.add(line[6])
 			preHL.add((line[2]+line[3])/2.)
-		length_pre = min(5,idx)
+		length_pre = min(n_period,idx)
 		for pre_name in pre_name_list:
-			for i_idx in xrange(length_pre-1,-1,-1):
+			for i_idx in xrange(length_pre):
 				if pre_name == 'H':
 					value = preH.element[i_idx]
 				elif pre_name == 'L':
@@ -148,16 +148,16 @@ def get_previous_data(database, table_name_raw, table_name_clean, n_period = 5):
 					value = preHL.element[i_idx]
 				sql_comm = 'update %(table_name)s set pre%(pre_name)s%(i_idx)s = %(value)s \
 					where tradeID = %(idx)s'%{'table_name': table_name_clean, 'pre_name': pre_name, 'idx': idx, \
-					'i_idx': length_pre - 1 - i_idx, 'value': value}			
+					'i_idx': i_idx, 'value': value}			
 				database_pt.execute(sql_comm)
 		database.commit()
 		##--insert average values
-		pre_avg_H = get_average(preH)
-		pre_avg_L = get_average(preL)
-		pre_avg_M = get_average(preM)
-		pre_avg_Std = get_average(preStd)
-		pre_avg_C = get_average(preC)
-		length_pre = min(4,idx-1)
+		pre_avg_H = get_average(preH, n_period)
+		pre_avg_L = get_average(preL, n_period)
+		pre_avg_M = get_average(preM, n_period)
+		pre_avg_Std = get_average(preStd, n_period)
+		pre_avg_C = get_average(preC, n_period)
+		length_pre = min(n_period-1,idx-1)
 		for pre_name in pre_name_list[:-2]:
 			for i_idx in xrange(length_pre):
 				if pre_name == 'H':
