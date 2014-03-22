@@ -41,11 +41,10 @@ def get_fft(nlist_obj, point_number_list):
 
 def get_lr_fft_data(database, table_name_raw, table_name_clean, point_number_lr_list=[3, 4, 5, 10, 20, 30], point_number_fft_list=[2, 4, 6, 8, 10, 20, 30]):
 	'''
-	Extract information from table_name_raw and insert important information into table_name_clean
-	Important information includes:
-		highest, lowest, closing, mean, and std in previous n_period days
-		average value of the highest, lowest, closing, mean, and std based on previous 2, 3, 4, and 5 days
-		Slope of closing rate predicted by Taylor expansion based on previous 2, 3, 4, and 5 days.
+	Extract information from table_name_raw and insert feature into table_name_clean
+	Feature includes:
+		Amplitude and wave phase from FFT based on previous points in point_number_fft_list
+		Slope from linear regression based on previous points in point_number_lr_list
 	Input:
 		database: the pointer of the database
 		table_name_raw: table name with raw data
